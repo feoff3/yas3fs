@@ -127,6 +127,23 @@ download the most suitable "egg" from
 
 If something does not work as expected you can use the `-df` options to run in foreground and in debug mode.
 
+**On Windows**
+
+Install WinFSPs (FUSE-compatible drive for Windows) from <http://www.secfs.net/winfsp/>.
+
+Install latest Python 2 release for Windows <https://www.python.org/downloads/windows/> , e.g. <https://www.python.org/ftp/python/2.7.14/python-2.7.14.msi> enabling ^all^ components during the installation.
+
+Run cmd.exe 
+
+    # install python modules #(TODO: change it to official yas3fs repo if merged into it)  
+    python -m pip install https://github.com/billziss-gh/fusepy/archive/master.zip
+    python -m pip install https://github.com/feoff3/yas3fs/archive/master.zip 
+    # set your AWS Keys
+    set AWS_ACCESS_KEY_ID=xxxx
+    set AWS_SECRET_ACCESS_KEY=yyyy
+    # For single host mount
+    python -m yas3fs.\_\_init\_\_ s3://BUCKET/PATH X:
+
 **Unmount**
 
 To unmount the file system on Linux:
@@ -134,6 +151,8 @@ To unmount the file system on Linux:
     fusermount -u LOCAL-PATH
 
 To unmount the file system on a Mac you can use `umount`.
+
+To unmount on Windows simply close cmd.exe Window killing python process.
 
 ### Full Usage
 
