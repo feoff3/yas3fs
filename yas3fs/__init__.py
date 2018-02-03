@@ -1015,7 +1015,7 @@ class YAS3FS(LoggingMixIn, Operations):
             self.plugin.logger = logger
 
         signal.signal(signal.SIGINT, self.signal_handler)
-        signal.signal(signal.SIGHUP, self.signal_handler)
+        #signal.signal(signal.SIGHUP, self.signal_handler)
 
 
     # faking the funk, get a better wrapper model later
@@ -1130,8 +1130,8 @@ class YAS3FS(LoggingMixIn, Operations):
             logger.info("interrupt RECEIVED SIGINT %s", signum)
             self.destroy('/')
 
-        elif signum == signal.SIGHUP:
-            logger.info("hangup RECEIVED SIGHUP %s", signum)
+        #elif signum == signal.SIGHUP: -- not supported on Windows
+        #    logger.info("hangup RECEIVED SIGHUP %s", signum) 
 
         logger.info("signal_handler DONE %s", signum)
 
