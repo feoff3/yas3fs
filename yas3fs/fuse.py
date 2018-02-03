@@ -13,7 +13,7 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-from __future__ import division
+from __future__ import print_function, absolute_import, division
 
 from ctypes import *
 from ctypes.util import find_library
@@ -46,6 +46,23 @@ try:
 except NameError:
     basestring = str
 
+_system = system()
+_machine = machine()
+
+if _system == 'Windows':
+    # NOTE:
+    #
+    # sizeof(long)==4 on Windows 32-bit and 64-bit
+    # sizeof(long)==4 on Cygwin 32-bit and ==8 on Cygwin 64-bit
+    #
+    # We have to fix up c_long and c_ulong so that it matches the
+    # Cygwin (and UNIX) sizes when run on Windows. The alternative
+    # would be to modify every structure below that uses c_long and
+    # c_ulong.
+    import sys
+    c_long = c_int64 if sys.maxsize > 0xffffffff else c_int32
+    c_ulong = c_uint64 if sys.maxsize > 0xffffffff else c_uint32
+
 class c_timespec(Structure):
     _fields_ = [('tv_sec', c_long), ('tv_nsec', c_long)]
 
@@ -55,13 +72,29 @@ class c_utimbuf(Structure):
 class c_stat(Structure):
     pass    # Platform dependent
 
-_system = system()
-_machine = machine()
-
 if _system == 'Darwin':
     _libiconv = CDLL(find_library('iconv'), RTLD_GLOBAL) # libfuse dependency
     _libfuse_path = (find_library('fuse4x') or find_library('osxfuse') or
                      find_library('fuse'))
+elif _system == 'Windows':
+    try:
+        import _winreg as reg
+    except ImportError:
+        import winreg as reg
+    def Reg32GetValue(rootkey, keyname, valname):
+        key, val = None, None
+        try:
+            key = reg.OpenKey(rootkey, keyname, 0, reg.KEY_READ | reg.KEY_WOW64_32KEY)
+            val = str(reg.QueryValueEx(key, valname)[0])
+        except WindowsError:
+            pass
+        finally:
+            if key is not None:
+                reg.CloseKey(key)
+        return val
+    _libfuse_path = Reg32GetValue(reg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WinFsp", r"InstallDir")
+    if _libfuse_path:
+        _libfuse_path += r"bin\winfsp-%s.dll" % ("x64" if sys.maxsize > 0xffffffff else "x86")
 else:
     _libfuse_path = find_library('fuse')
 
@@ -155,6 +188,44 @@ elif _system == 'Linux':
             ('st_atimespec', c_timespec),
             ('st_mtimespec', c_timespec),
             ('st_ctimespec', c_timespec)]
+    elif _machine == 'mips':
+        c_stat._fields_ = [
+            ('st_dev', c_dev_t),
+            ('__pad1_1', c_ulong),
+            ('__pad1_2', c_ulong),
+            ('__pad1_3', c_ulong),
+            ('st_ino', c_ulong),
+            ('st_mode', c_mode_t),
+            ('st_nlink', c_ulong),
+            ('st_uid', c_uid_t),
+            ('st_gid', c_gid_t),
+            ('st_rdev', c_dev_t),
+            ('__pad2_1', c_ulong),
+            ('__pad2_2', c_ulong),
+            ('st_size', c_off_t),
+            ('__pad3', c_ulong),
+            ('st_atimespec', c_timespec),
+            ('__pad4', c_ulong),
+            ('st_mtimespec', c_timespec),
+            ('__pad5', c_ulong),
+            ('st_ctimespec', c_timespec),
+            ('__pad6', c_ulong),
+            ('st_blksize', c_long),
+            ('st_blocks', c_long),
+            ('__pad7_1', c_ulong),
+            ('__pad7_2', c_ulong),
+            ('__pad7_3', c_ulong),
+            ('__pad7_4', c_ulong),
+            ('__pad7_5', c_ulong),
+            ('__pad7_6', c_ulong),
+            ('__pad7_7', c_ulong),
+            ('__pad7_8', c_ulong),
+            ('__pad7_9', c_ulong),
+            ('__pad7_10', c_ulong),
+            ('__pad7_11', c_ulong),
+            ('__pad7_12', c_ulong),
+            ('__pad7_13', c_ulong),
+            ('__pad7_14', c_ulong)]
     elif _machine == 'ppc':
         c_stat._fields_ = [
             ('st_dev', c_dev_t),
@@ -168,6 +239,23 @@ elif _system == 'Linux':
             ('st_size', c_off_t),
             ('st_blksize', c_long),
             ('st_blocks', c_longlong),
+            ('st_atimespec', c_timespec),
+            ('st_mtimespec', c_timespec),
+            ('st_ctimespec', c_timespec)]
+    elif _machine == 'aarch64':
+        c_stat._fields_ = [
+            ('st_dev', c_dev_t),
+            ('st_ino', c_ulong),
+            ('st_mode', c_mode_t),
+            ('st_nlink', c_uint),
+            ('st_uid', c_uid_t),
+            ('st_gid', c_gid_t),
+            ('st_rdev', c_dev_t),
+            ('__pad1', c_ulong),
+            ('st_size', c_off_t),
+            ('st_blksize', c_int),
+            ('__pad2', c_int),
+            ('st_blocks', c_long),
             ('st_atimespec', c_timespec),
             ('st_mtimespec', c_timespec),
             ('st_ctimespec', c_timespec)]
@@ -190,6 +278,35 @@ elif _system == 'Linux':
             ('st_mtimespec', c_timespec),
             ('st_ctimespec', c_timespec),
             ('st_ino', c_ulonglong)]
+elif _system == 'Windows' or _system.startswith('CYGWIN'):
+    ENOTSUP = 129 if _system == 'Windows' else 134
+    c_dev_t = c_uint
+    c_fsblkcnt_t = c_ulong
+    c_fsfilcnt_t = c_ulong
+    c_gid_t = c_uint
+    c_mode_t = c_uint
+    c_off_t = c_longlong
+    c_pid_t = c_int
+    c_uid_t = c_uint
+    setxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte),
+                           c_size_t, c_int)
+    getxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte),
+                           c_size_t)
+    c_stat._fields_ = [
+        ('st_dev', c_dev_t),
+        ('st_ino', c_ulonglong),
+        ('st_mode', c_mode_t),
+        ('st_nlink', c_ushort),
+        ('st_uid', c_uid_t),
+        ('st_gid', c_gid_t),
+        ('st_rdev', c_dev_t),
+        ('st_size', c_off_t),
+        ('st_atimespec', c_timespec),
+        ('st_mtimespec', c_timespec),
+        ('st_ctimespec', c_timespec),
+        ('st_blksize', c_int),
+        ('st_blocks', c_longlong),
+        ('st_birthtimespec', c_timespec)]
 else:
     raise NotImplementedError('%s is not supported.' % _system)
 
@@ -207,8 +324,7 @@ class c_statvfs(Structure):
         ('f_fsid', c_ulong),
         #('unused', c_int),
         ('f_flag', c_ulong),
-        ('f_namemax', c_ulong)
-    ]
+        ('f_namemax', c_ulong)]
 
 if _system == 'FreeBSD':
     c_fsblkcnt_t = c_uint64
@@ -316,6 +432,10 @@ class fuse_operations(Structure):
 
         ('utimens', CFUNCTYPE(c_int, c_char_p, POINTER(c_utimbuf))),
         ('bmap', CFUNCTYPE(c_int, c_char_p, c_size_t, POINTER(c_ulonglong))),
+        ('flag_nullpath_ok', c_uint, 1),
+        ('flag_nopath', c_uint, 1),
+        ('flag_utime_omit_ok', c_uint, 1),
+        ('flag_reserved', c_uint, 29),
     ]
 
 
@@ -325,7 +445,9 @@ def time_of_timespec(ts):
 def set_st_attrs(st, attrs):
     for key, val in attrs.items():
         if key in ('st_atime', 'st_mtime', 'st_ctime', 'st_birthtime'):
-            timespec = getattr(st, key + 'spec')
+            timespec = getattr(st, key + 'spec', None)
+            if timespec is None:
+                continue
             timespec.tv_sec = int(val)
             timespec.tv_nsec = int((val - timespec.tv_sec) * 10 ** 9)
         elif hasattr(st, key):
@@ -387,10 +509,20 @@ class FUSE(object):
         argv = (c_char_p * len(args))(*args)
 
         fuse_ops = fuse_operations()
-        for name, prototype in fuse_operations._fields_:
-            if prototype != c_voidp and getattr(operations, name, None):
-                op = partial(self._wrapper, getattr(self, name))
-                setattr(fuse_ops, name, prototype(op))
+        for ent in fuse_operations._fields_:
+            name, prototype = ent[:2]
+
+            val = getattr(operations, name, None)
+            if val is None:
+                continue
+
+            # Function pointer members are tested for using the
+            # getattr(operations, name) above but are dynamically
+            # invoked using self.operations(name)
+            if hasattr(prototype, 'argtypes'):
+                val = prototype(partial(self._wrapper, getattr(self, name)))
+
+            setattr(fuse_ops, name, val)
 
         try:
             old_handler = signal(SIGINT, SIG_DFL)
@@ -429,6 +561,14 @@ class FUSE(object):
             print_exc()
             return -EFAULT
 
+    def _decode_optional_path(self, path):
+        # NB: this method is intended for fuse operations that
+        #     allow the path argument to be NULL,
+        #     *not* as a generic path decoding method
+        if path is None:
+            return None
+        return path.decode(self.encoding)
+
     def getattr(self, path, buf):
         return self.fgetattr(path, buf, None)
 
@@ -438,8 +578,6 @@ class FUSE(object):
 
         # copies a string into the given buffer
         # (null terminated and truncated if necessary)
-        if not isinstance(ret, bytes):
-            ret = ret.encode('utf-8')
         data = create_string_buffer(ret[:bufsize - 1])
         memmove(buf, data, len(data))
         return 0
@@ -503,7 +641,7 @@ class FUSE(object):
         else:
           fh = fip.contents.fh
 
-        ret = self.operations('read', path.decode(self.encoding), size,
+        ret = self.operations('read', self._decode_optional_path(path), size,
                                       offset, fh)
 
         if not ret: return 0
@@ -512,10 +650,8 @@ class FUSE(object):
         assert retsize <= size, \
             'actual amount read %d greater than expected %d' % (retsize, size)
 
-        if not isinstance(ret, bytes):
-            ret = ret.encode('utf-8')
         data = create_string_buffer(ret, retsize)
-        memmove(buf, ret, retsize)
+        memmove(buf, data, retsize)
         return retsize
 
     def write(self, path, buf, size, offset, fip):
@@ -526,7 +662,7 @@ class FUSE(object):
         else:
             fh = fip.contents.fh
 
-        return self.operations('write', path.decode(self.encoding), data,
+        return self.operations('write', self._decode_optional_path(path), data,
                                         offset, fh)
 
     def statfs(self, path, buf):
@@ -544,7 +680,7 @@ class FUSE(object):
         else:
             fh = fip.contents.fh
 
-        return self.operations('flush', path.decode(self.encoding), fh)
+        return self.operations('flush', self._decode_optional_path(path), fh)
 
     def release(self, path, fip):
         if self.raw_fi:
@@ -552,7 +688,7 @@ class FUSE(object):
         else:
           fh = fip.contents.fh
 
-        return self.operations('release', path.decode(self.encoding), fh)
+        return self.operations('release', self._decode_optional_path(path), fh)
 
     def fsync(self, path, datasync, fip):
         if self.raw_fi:
@@ -560,7 +696,7 @@ class FUSE(object):
         else:
             fh = fip.contents.fh
 
-        return self.operations('fsync', path.decode(self.encoding), datasync,
+        return self.operations('fsync', self._decode_optional_path(path), datasync,
                                         fh)
 
     def setxattr(self, path, name, value, size, options, *args):
@@ -578,8 +714,7 @@ class FUSE(object):
 
         # do not truncate
         if retsize > size: return -ERANGE
-        if not isinstance(ret, bytes):
-            ret = ret.encode('utf-8')
+
         buf = create_string_buffer(ret, retsize)    # Does not add trailing 0
         memmove(value, buf, retsize)
 
@@ -587,7 +722,9 @@ class FUSE(object):
 
     def listxattr(self, path, namebuf, size):
         attrs = self.operations('listxattr', path.decode(self.encoding)) or ''
-        ret = '\x00'.join(attrs).encode(self.encoding) + '\x00'
+        ret = '\x00'.join(attrs).encode(self.encoding)
+        if len(ret) > 0:
+            ret += '\x00'.encode(self.encoding)
 
         retsize = len(ret)
         # allow size queries
@@ -595,8 +732,7 @@ class FUSE(object):
 
         # do not truncate
         if retsize > size: return -ERANGE
-        if not isinstance(ret, bytes):
-            ret = ret.encode('utf-8')
+
         buf = create_string_buffer(ret, retsize)
         memmove(namebuf, buf, retsize)
 
@@ -615,7 +751,7 @@ class FUSE(object):
 
     def readdir(self, path, buf, filler, offset, fip):
         # Ignore raw_fi
-        for item in self.operations('readdir', path.decode(self.encoding),
+        for item in self.operations('readdir', self._decode_optional_path(path),
                                                fip.contents.fh):
 
             if isinstance(item, basestring):
@@ -635,12 +771,12 @@ class FUSE(object):
 
     def releasedir(self, path, fip):
         # Ignore raw_fi
-        return self.operations('releasedir', path.decode(self.encoding),
+        return self.operations('releasedir', self._decode_optional_path(path),
                                              fip.contents.fh)
 
     def fsyncdir(self, path, datasync, fip):
         # Ignore raw_fi
-        return self.operations('fsyncdir', path.decode(self.encoding),
+        return self.operations('fsyncdir', self._decode_optional_path(path),
                                            datasync, fip.contents.fh)
 
     def init(self, conn):
@@ -668,7 +804,7 @@ class FUSE(object):
         else:
             fh = fip.contents.fh
 
-        return self.operations('truncate', path.decode(self.encoding),
+        return self.operations('truncate', self._decode_optional_path(path),
                                            length, fh)
 
     def fgetattr(self, path, buf, fip):
@@ -682,7 +818,7 @@ class FUSE(object):
         else:
             fh = fip.contents.fh
 
-        attrs = self.operations('getattr', path.decode(self.encoding), fh)
+        attrs = self.operations('getattr', self._decode_optional_path(path), fh)
         set_st_attrs(st, attrs)
         return 0
 
@@ -692,7 +828,7 @@ class FUSE(object):
         else:
             fh = fip.contents.fh
 
-        return self.operations('lock', path.decode(self.encoding), fh, cmd,
+        return self.operations('lock', self._decode_optional_path(path), fh, cmd,
                                        lock)
 
     def utimens(self, path, buf):
@@ -775,7 +911,7 @@ class Operations(object):
 
         if path != '/':
             raise FuseOSError(ENOENT)
-        return dict(st_mode=(S_IFDIR | 0o0755), st_nlink=2)
+        return dict(st_mode=(S_IFDIR | 0o755), st_nlink=2)
 
     def getxattr(self, path, name, position=0):
         raise FuseOSError(ENOTSUP)
