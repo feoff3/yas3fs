@@ -225,7 +225,7 @@ class FSData():
             if os.path.isfile(filename):
                 logger.debug("found previous cache file '%s'" % filename)
                 # There's a file already there
-                self.content = open(filename, mode='rb+')
+                self.content = self._open_cache_file(filename)
                 self.update_size()
                 self.content.close()
                 self.set('new', None) # Not sure it is the latest version
@@ -245,6 +245,13 @@ class FSData():
             self.content = None # Not open, yet
         else:
             raise FSData.unknown_store
+        
+    def _open_cache_file(self , filename):
+        if sys.platform=="win32":
+            return win_open(filename)
+        else:
+            return open(filename, mode='rb+')
+        
     def get_lock(self, wait_until_cleared_proplist = None):
         return self.cache.get_lock(self.path, wait_until_cleared_proplist)
     def open(self):
@@ -252,7 +259,7 @@ class FSData():
             if not self.has('open'):
                 if self.store == 'disk':
                     filename = self.cache.get_cache_filename(self.path)
-                    self.content = open(filename, mode='rb+')
+                    self.content = self._open_cache_file(filename)
             self.inc('open')
     def close(self):
         with self.get_lock():
@@ -293,7 +300,7 @@ class FSData():
             if self.store == 'disk':
                 filename = self.cache.get_cache_filename(self.path)
                 #TODO: make use of some sparsed mechanism to save space
-                return open(filename, mode='rb+')
+                return self._open_cache_file(filename)
             else:
                 return self.content
     def get_content_as_string(self):
@@ -389,7 +396,7 @@ class FSData():
                     with self.cache.disk_lock:
                         remove_empty_dirs_for_file(etag_filename)
                 if self.content:
-                    self.content = open(new_filename, mode='rb+')
+                    self.content = self._open_cache_file(filename)
             self.path = new_path
 
 class FSCache():

@@ -11,6 +11,9 @@ requires = ['setuptools>=2.2', 'boto>=2.25.0']
 if sys.version_info[:2] < (2, 7):
     requires.append("argparse")
 
+if sys.platform == "win32":
+    requires.append('pypiwin32')
+
 setup(
     name='yas3fs',
     version=__version__,
