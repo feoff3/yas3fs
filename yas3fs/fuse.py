@@ -539,7 +539,7 @@ class FUSE(object):
 
         del self.operations     # Invoke the destructor
         if err:
-            raise RuntimeError(err)
+            raise RuntimeError(err, "Failed to start FUSE driver")
 
     @staticmethod
     def _normalize_fuse_options(**kargs):
