@@ -2510,8 +2510,12 @@ class YAS3FS(LoggingMixIn, Operations):
                 raise FuseOSError(errno.ENOENT)
             #TODO: temp dbg
             logger.debug("unlink key " + repr(k) + " path " + path)
-            self.cache.reset(path, with_deleting = bool(k)) # Cache invaliation
-            self.remove_from_parent_readdir(path)
+            try:
+                self.cache.reset(path, with_deleting = bool(k)) # Cache invaliation
+                self.remove_from_parent_readdir(path)
+            except Exception as e:
+                logger.warning("unlink Exception during unlink " + str(e))
+                logger.warning(traceback.format_exc())
             logger.debug("unlink removed from dir")
             if k:
                 logger.debug("unlink '%s' '%s' S3" % (path, k))
