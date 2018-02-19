@@ -292,6 +292,7 @@ class FSData():
         with self.get_lock(wait_until_cleared_proplist):
             if self.store == 'disk':
                 filename = self.cache.get_cache_filename(self.path)
+                #TODO: make use of some sparsed mechanism to save space
                 return open(filename, mode='rb+')
             else:
                 return self.content
@@ -1426,7 +1427,7 @@ class YAS3FS(LoggingMixIn, Operations):
                 purge = True
                 store = 'disk'
 
-            if purge:
+            if purge:                              
                 # Need to purge something
                 path = self.cache.lru.popleft() # Take a path on top of the LRU (least used)
                 with self.cache.get_lock(path):
@@ -2370,6 +2371,8 @@ class YAS3FS(LoggingMixIn, Operations):
                 logger.debug("truncate wait '%s' '%i'" % (path, size))
                 data_range.wait()
                 logger.debug("truncate awake '%s' '%i'" % (path, size))
+            #TODO: update size entry in cache but leave file in cache to the same size
+            #so to avoid enormous disk consumption by sparsed files on Windows...
             data.content.truncate(size)
             now = get_current_time()
             attr = self.get_metadata(path, 'attr')
@@ -2505,8 +2508,11 @@ class YAS3FS(LoggingMixIn, Operations):
             if not k and not self.cache.has(path):
                 logger.debug("unlink '%s' ENOENT" % (path))
                 raise FuseOSError(errno.ENOENT)
+            #TODO: temp dbg
+            logger.debug("unlink key " + repr(k) + " path " + path)
             self.cache.reset(path, with_deleting = bool(k)) # Cache invaliation
             self.remove_from_parent_readdir(path)
+            logger.debug("unlink removed from dir")
             if k:
                 logger.debug("unlink '%s' '%s' S3" % (path, k))
                 ###k.delete()
@@ -2622,7 +2628,9 @@ class YAS3FS(LoggingMixIn, Operations):
             if not data.content:
                 logger.debug("read '%s' '%i' '%i' '%s' no content" % (path, length, offset, fh))
                 return '' # Something better ???
-            data.content.seek(offset)
+            #Note: The approach of directly writing and reading to cache may lead to local disk overconsumption
+            #imagine only some part of data is really required not all of it
+            data.content.seek(offset) 
             return data.content.read(length)
 
     def write(self, path, new_data, offset, fh=None):
