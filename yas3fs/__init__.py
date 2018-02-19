@@ -1636,11 +1636,11 @@ class YAS3FS(LoggingMixIn, Operations):
                         metadata_values['st_gid'] = gid
                         if key is None:
                             ### # no key, default to dir
-                            metadata_values['st_mode'] = (stat.S_IFDIR | 0o0777)
+                            metadata_values['st_mode'] = (stat.S_IFDIR | 0o0755)
                         elif key and key.name != '' and key.name[-1] != '/':
-                            metadata_values['st_mode'] = (stat.S_IFREG | 0o0777)
+                            metadata_values['st_mode'] = (stat.S_IFREG | 0o0755)
                         else:
-                            metadata_values['st_mode'] = (stat.S_IFDIR | 0o0777)
+                            metadata_values['st_mode'] = (stat.S_IFDIR | 0o0755)
                         if key and key.last_modified:
                             now = time.mktime(time.strptime(key.last_modified, "%a, %d %b %Y %H:%M:%S %Z"))
                         else:
