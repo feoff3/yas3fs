@@ -66,6 +66,9 @@ from .YAS3FSPlugin import YAS3FSPlugin
 
 from ._version import __version__
 
+if sys.platform=="win32":
+    from .win32 import *
+
 mimetypes.add_type("image/svg+xml", ".svg", True)
 mimetypes.add_type("image/svg+xml", ".svgz", True)
 
