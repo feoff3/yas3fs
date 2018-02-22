@@ -3318,6 +3318,7 @@ AWS_DEFAULT_REGION environment variable can be used to set the default AWS regio
     global logger
     logger = logging.getLogger('yas3fs')
     formatter = ISO8601Formatter('%(threadName)s %(asctime)s %(levelname)s %(message)s')
+    logHandler = None
     if options.log: # Rotate log files at 100MB size
         log_size =  options.log_mb_size *1024*1024
         if options.log_backup_gzip:
@@ -3326,14 +3327,18 @@ AWS_DEFAULT_REGION environment variable can be used to set the default AWS regio
             logHandler = logging.handlers.RotatingFileHandler(options.log, maxBytes=log_size, backupCount=options.log_backup_count)
 
         logHandler.setFormatter(formatter)
-        logger.addHandler(logHandler)
+        if not options.fulldebug:
+            logger.addHandler(logHandler)
     if options.foreground or not options.log:
         logHandler = logging.StreamHandler()
         logHandler.setFormatter(formatter)
-        logger.addHandler(logHandler)
+        if not options.fulldebug:
+            logger.addHandler(logHandler)
 
     if options.fulldebug:
         logging.setLevel(logging.DEBUG)
+        if logHandler:
+            logging.addHandler(logHandler)
     
     if options.debug:
         logger.setLevel(logging.DEBUG)
