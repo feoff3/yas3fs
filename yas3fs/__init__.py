@@ -3306,6 +3306,8 @@ AWS_DEFAULT_REGION environment variable can be used to set the default AWS regio
                         help='run in foreground')
     parser.add_argument('-d', '--debug', action='store_true',
                         help='show debug info')
+    parser.add_argument('--fulldebug', action='store_true',
+                        help='show all debug messages from all modules')
     parser.add_argument('-V', '--version', action='version', version='%(prog)s {version}'.format(version=__version__))
 
     options = parser.parse_args()
@@ -3330,6 +3332,9 @@ AWS_DEFAULT_REGION environment variable can be used to set the default AWS regio
         logHandler.setFormatter(formatter)
         logger.addHandler(logHandler)
 
+    if options.fulldebug:
+        logging.setLevel(logging.DEBUG)
+    
     if options.debug:
         logger.setLevel(logging.DEBUG)
     else:
