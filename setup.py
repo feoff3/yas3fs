@@ -5,6 +5,7 @@ import sys
 exec(open('yas3fs/_version.py').read())
 
 requires = ['setuptools>=2.2', 'boto>=2.25.0']
+extras_require = { }
 
 # Versions of Python pre-2.7 require argparse separately. 2.7+ and 3+ all
 # include this as the replacement for optparse.
@@ -12,7 +13,7 @@ if sys.version_info[:2] < (2, 7):
     requires.append("argparse")
 
 if sys.platform == "win32":
-    requires.append('pypiwin32')
+    extras_require['PDF'] =  ["pypiwin32", "Win"]
 
 setup(
     name='yas3fs',
@@ -23,5 +24,6 @@ setup(
     author_email='dpoccia@gmail.com',
     url='https://github.com/danilop/yas3fs',
     install_requires=requires,
-    entry_points = { 'console_scripts': ['yas3fs = yas3fs:main'] },
+    entry_points = { 'console_scripts': ['yas3fs = yas3fs:main' , 'yas3fs_win = yas3fs:main [Win]'] },
+    extras_require = extras_require,
     )
