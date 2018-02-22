@@ -26,4 +26,4 @@ def win_open(filename):
     file_descriptor = msvcrt.open_osfhandle(
         detached_handle, os.O_RDWR)
     # open the file descriptor
-    return open(file_descriptor)
+    return os.fdopen(file_descriptor , "rb+")
