@@ -22,7 +22,7 @@ from os import strerror
 from platform import machine, system
 from signal import signal, SIGINT, SIG_DFL
 from stat import S_IFDIR
-from traceback import print_exc
+from traceback import print_exc, format_exc
 
 import logging
 
@@ -1033,7 +1033,8 @@ class LoggingMixIn:
         try:
             ret = getattr(self, op)(path, *args)
             return ret
-        except OSError as e:
+        except Exception as e:
+            self.log.debug(format_exc())
             ret = str(e)
             raise
         finally:
