@@ -351,6 +351,7 @@ class FSData():
                     with self.cache.disk_lock:
                         if os.path.isfile(filename):
                             logger.debug("unlink cache file '%s'" % filename)
+                            #TODO: this unlink fails on Windows due to existing handles available around
                             os.unlink(filename)
                             remove_empty_dirs_for_file(filename)
                     etag_filename = self.cache.get_cache_etags_filename(self.path)
