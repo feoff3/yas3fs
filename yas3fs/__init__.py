@@ -351,8 +351,14 @@ class FSData():
                     with self.cache.disk_lock:
                         if os.path.isfile(filename):
                             logger.debug("unlink cache file '%s'" % filename)
-                            #TODO: this unlink fails on Windows due to existing handles available around
-                            os.unlink(filename)
+                            if self.content:
+                                self.content.close()
+                            try:
+                                #this unlink may fail on Windows due to existing handles available around
+                                os.unlink(filename)
+                            except Exception as e:
+                                # then the file resides in cache as orphan...
+                                self.logger.warn("unlink cache file failed '%s' : %s" % (filename,str(e)))
                             remove_empty_dirs_for_file(filename)
                     etag_filename = self.cache.get_cache_etags_filename(self.path)
                     with self.cache.disk_lock:
@@ -2519,15 +2525,8 @@ class YAS3FS(LoggingMixIn, Operations):
             if not k and not self.cache.has(path):
                 logger.debug("unlink '%s' ENOENT" % (path))
                 raise FuseOSError(errno.ENOENT)
-            #TODO: temp dbg
-            logger.debug("unlink key " + repr(k) + " path " + path)
-            try:
-                self.cache.reset(path, with_deleting = bool(k)) # Cache invaliation
-                self.remove_from_parent_readdir(path)
-            except Exception as e:
-                logger.warning("unlink Exception during unlink " + str(e))
-                logger.warning(traceback.format_exc())
-            logger.debug("unlink removed from dir")
+            self.cache.reset(path, with_deleting = bool(k)) # Cache invaliation
+            self.remove_from_parent_readdir(path)
             if k:
                 logger.debug("unlink '%s' '%s' S3" % (path, k))
                 ###k.delete()
